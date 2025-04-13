@@ -1,21 +1,22 @@
 import {
   Entity,
-  PrimaryGeneratedColumn,
   Column,
   ManyToOne,
   JoinColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  PrimaryColumn,
 } from 'typeorm';
 import { Cart } from './cart.entity';
 
-@Entity({ name: 'cart_items' })
+@Entity('cart_items')
 export class CartItem {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryColumn('uuid')
+  cart_id: string;
 
-  @Column({ type: 'uuid' })
+  @PrimaryColumn('uuid')
   product_id: string;
-
-  @Column({ type: 'int' })
+  @Column('integer')
   count: number;
 
   @ManyToOne(() => Cart, (cart) => cart.items, { onDelete: 'CASCADE' })

@@ -1,32 +1,39 @@
 import { NestFactory } from '@nestjs/core';
-import helmet from 'helmet';
-import { AppModule } from './app.module';
-import { ConfigService } from '@nestjs/config';
-import { Callback, Context, Handler } from 'aws-lambda';
+import { ExpressAdapter } from '@nestjs/platform-express';
 import serverlessExpress from '@vendia/serverless-express';
+import { Context, Handler } from 'aws-lambda';
+import express from 'express';
+import 'dotenv/config';
 
-let server: Handler;
+import { AppModule } from './app.module';
+import helmet from 'helmet';
 
-async function bootstrap(): Promise<Handler> {
-  const app = await NestFactory.create(AppModule);
+let cachedServer: Handler;
 
-  app.enableCors({
-    origin: (req, callback) => callback(null, true),
-  });
-  app.use(helmet());
+async function bootstrap() {
+  if (!cachedServer) {
+    const expressApp = express();
+    const nestApp = await NestFactory.create(
+      AppModule,
+      new ExpressAdapter(expressApp),
+    );
 
-  await app.init();
+    nestApp.enableCors({
+      origin: '*',
+      methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+      allowedHeaders: 'Content-Type, Authorization',
+    });
+    nestApp.use(helmet());
 
-  const expressApp = app.getHttpAdapter().getInstance();
+    await nestApp.init();
 
-  return serverlessExpress({ app: expressApp });
+    cachedServer = serverlessExpress({ app: expressApp });
+  }
+
+  return cachedServer;
 }
 
-export const handler: Handler = async (
-  event: any,
-  context: Context,
-  callback: Callback,
-) => {
-  server = server ?? (await bootstrap());
+export const handler = async (event: any, context: Context, callback: any) => {
+  const server = await bootstrap();
   return server(event, context, callback);
 };
