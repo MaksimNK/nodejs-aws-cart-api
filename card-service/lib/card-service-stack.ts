@@ -1,30 +1,59 @@
 import * as cdk from 'aws-cdk-lib';
-import { Construct } from 'constructs';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as path from 'path';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
-import { Runtime, FunctionUrlAuthType } from 'aws-cdk-lib/aws-lambda';
-import { join } from 'path';
 
 export class CardServiceStack extends cdk.Stack {
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: cdk.App, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    const nestLambda = new NodejsFunction(this, 'NestJsLambda', {
-      runtime: Runtime.NODEJS_18_X,
-      entry: join(__dirname, '../../dist/lambda.ts'),
+    const cartLambda = new NodejsFunction(this, 'cartLambda', {
+      functionName: 'cartLambdaFn',
+      runtime: lambda.Runtime.NODEJS_20_X,
       handler: 'handler',
-      memorySize: 512,
-      timeout: cdk.Duration.seconds(15),
+      entry: path.join(__dirname, '../../dist/src/lambda.js'),
+      depsLockFilePath: path.join(__dirname, '../../package-lock.json'),
       bundling: {
-        externalModules: ['@nestjs/core', '@nestjs/common', 'aws-sdk'],
+        minify: true,
+        sourceMap: true,
+        externalModules: [
+          '@aws-sdk/*',
+          'aws-sdk',
+          'class-transformer',
+          'class-validator',
+        ],
+        target: 'node20',
+        nodeModules: [
+          '@nestjs/core',
+          '@nestjs/common',
+          '@nestjs/platform-express',
+          'reflect-metadata',
+        ],
+      },
+      environment: {
+        DB_HOST: process.env.DB_HOST!,
+        DB_PORT: process.env.DB_PORT!,
+        DB_USERNAME: process.env.DB_USERNAME!,
+        DB_PASSWORD: process.env.DB_PASSWORD!,
+        DB_NAME: process.env.DB_NAME!,
+      },
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 512,
+    });
+
+    const { url } = cartLambda.addFunctionUrl({
+      authType: lambda.FunctionUrlAuthType.NONE,
+      cors: {
+        allowedOrigins: ['*'],
+        allowedMethods: [
+          lambda.HttpMethod.GET,
+          lambda.HttpMethod.DELETE,
+          lambda.HttpMethod.PUT,
+        ],
+        allowedHeaders: ['*'],
       },
     });
 
-    const url = nestLambda.addFunctionUrl({
-      authType: FunctionUrlAuthType.NONE,
-    });
-
-    new cdk.CfnOutput(this, 'LambdaFunctionUrl', {
-      value: url.url,
-    });
+    new cdk.CfnOutput(this, 'Url', { value: url });
   }
 }
