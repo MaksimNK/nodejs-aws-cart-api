@@ -32,14 +32,15 @@ export class AppController {
   @Post('api/auth/register')
   @HttpCode(HttpStatus.CREATED)
   // TODO ADD validation
-  register(@Body() body: User) {
-    return this.authService.register(body);
+  async register(@Body() body: User) {
+    return await this.authService.register(body);
   }
 
   @UseGuards(LocalAuthGuard)
   @HttpCode(200)
   @Post('api/auth/login')
   async login(@Request() req: AppRequest) {
+    console.log('login', req);
     const token = this.authService.login(req.user, 'basic');
 
     return token;
